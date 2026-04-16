@@ -4,7 +4,8 @@
       "Bash(git -C D:/Github/openex log --oneline -5)",
       "Bash(git -C D:/Github/openex status)",
       "Bash(npm install:*)",
-      "Bash(npx electron-vite:*)"
+      "Bash(npx electron-vite:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

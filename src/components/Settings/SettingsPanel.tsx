@@ -1,30 +1,30 @@
 import React, { useEffect, useState } from 'react'
-import { trpc } from '../../lib/trpc'
+import { api } from '../../lib/api'
 import { useSettingsStore } from '../../store/settings'
 import type { Config } from '../../../../shared/types'
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { config, setConfig } = useSettingsStore()
-  const setConfigMutation = trpc.config.set.useMutation()
-  const { data: loadedConfig } = trpc.config.get.useQuery()
-
-  const [form, setForm] = useState<Config | null>(null)
+  const [form, setForm] = useState<Config | null>(config)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    const c = config ?? loadedConfig
-    if (c) setForm(c)
-  }, [config, loadedConfig])
+    if (!form) {
+      api.getConfig().then(setForm)
+    }
+  }, [])
 
   if (!form) return null
 
+  const isOpenAI = form.activeProvider === 'openai-compat'
+
   const handleSave = async () => {
-    await setConfigMutation.mutateAsync(form)
+    setSaving(true)
+    await api.setConfig(form)
     setConfig(form)
+    setSaving(false)
     onClose()
   }
-
-  const provider = form.activeProvider
-  const isOpenAI = provider === 'openai-compat'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -112,18 +112,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         </label>
 
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
-          >
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors">
             Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={setConfigMutation.isLoading}
+            disabled={saving}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 transition-colors"
           >
-            {setConfigMutation.isLoading ? 'Saving…' : 'Save'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

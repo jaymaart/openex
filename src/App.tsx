@@ -1,29 +1,25 @@
-import React, { useEffect } from 'react'
-import { trpc } from './lib/trpc'
+import React, { useEffect, useState } from 'react'
+import { api } from './lib/api'
 import { useSettingsStore } from './store/settings'
 import { TopBar } from './components/Chat/TopBar'
 import { MessageThread } from './components/Chat/MessageThread'
 import { MessageInput } from './components/Chat/MessageInput'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
+import type { Config } from '../../shared/types'
 
 export function App() {
   const { isOpen, open, close, setConfig } = useSettingsStore()
-  const { data: hasConfig, isLoading } = trpc.config.hasConfig.useQuery()
-  const { data: config } = trpc.config.get.useQuery()
+  const [loading, setLoading] = useState(true)
 
-  // Sync loaded config into store
   useEffect(() => {
-    if (config) setConfig(config)
-  }, [config])
+    Promise.all([api.hasConfig(), api.getConfig()]).then(([has, config]) => {
+      setConfig(config)
+      setLoading(false)
+      if (!has) open()
+    })
+  }, [])
 
-  // First-run: open settings automatically if no config exists
-  useEffect(() => {
-    if (!isLoading && hasConfig === false) {
-      open()
-    }
-  }, [isLoading, hasConfig])
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center text-zinc-600 text-sm">
         Loading…

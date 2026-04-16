@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { trpc } from '../../lib/trpc'
+import { api } from '../../lib/api'
 import { useConversationStore } from '../../store/conversation'
 import type { AgentEvent } from '../../../../shared/types'
 
@@ -19,19 +19,19 @@ export function MessageInput() {
     setPendingApproval
   } = useConversationStore()
 
-  const utils = trpc.useContext()
-  const chatSubscription = trpc.agent.chat.useSubscription
-
-  // We manage the subscription manually via a ref to avoid stale closures
-  const subscriptionRef = useRef<ReturnType<typeof chatSubscription> | null>(null)
-
   const disabled = isStreaming || !!pendingApprovalId
 
   useEffect(() => {
-    if (!disabled && textareaRef.current) {
-      textareaRef.current.focus()
-    }
+    if (!disabled) textareaRef.current?.focus()
   }, [disabled])
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }, [text])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -53,47 +53,28 @@ export function MessageInput() {
 
     let currentAssistantId: string | null = null
 
-    // Use tRPC subscription directly
-    const sub = trpc.agent.chat.subscribe(
-      { message },
-      {
-        onData(event: AgentEvent) {
-          if (event.type === 'text_delta') {
-            if (!currentAssistantId) {
-              currentAssistantId = startAssistantMessage()
-            }
-            appendDelta(currentAssistantId, event.delta ?? '')
-          } else if (event.type === 'tool_call' && event.toolCall) {
-            currentAssistantId = null // next text starts a new message
-            addToolCall(event.toolCall)
-          } else if (event.type === 'approval_request' && event.toolCall) {
-            setApprovalState(event.toolCall.id, 'pending')
-            setPendingApproval(event.toolCall.id)
-          } else if (event.type === 'tool_result' && event.toolResult) {
-            const tc = event.toolResult
-            setApprovalState(tc.toolCallId, 'done')
-            addToolResult(tc)
-          } else if (event.type === 'done' || event.type === 'error') {
-            setStreaming(false)
-            setPendingApproval(null)
-          }
-        },
-        onError(err) {
-          console.error('Agent error:', err)
-          setStreaming(false)
-          setPendingApproval(null)
-        }
+    const unsub = api.onAgentEvent((event: AgentEvent) => {
+      if (event.type === 'text_delta') {
+        if (!currentAssistantId) currentAssistantId = startAssistantMessage()
+        appendDelta(currentAssistantId, event.delta ?? '')
+      } else if (event.type === 'tool_call' && event.toolCall) {
+        currentAssistantId = null
+        addToolCall(event.toolCall)
+      } else if (event.type === 'approval_request' && event.toolCall) {
+        setApprovalState(event.toolCall.id, 'pending')
+        setPendingApproval(event.toolCall.id)
+      } else if (event.type === 'tool_result' && event.toolResult) {
+        setApprovalState(event.toolResult.toolCallId, 'done')
+        addToolResult(event.toolResult)
+      } else if (event.type === 'done' || event.type === 'error') {
+        setStreaming(false)
+        setPendingApproval(null)
+        unsub()
       }
-    )
-  }
+    })
 
-  // Auto-resize textarea
-  useEffect(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
-  }, [text])
+    api.sendMessage(message)
+  }
 
   return (
     <div className="flex-shrink-0 border-t border-white/10 bg-[#111] px-4 py-3">

@@ -1,40 +1,38 @@
 import React from 'react'
-import { trpc } from '../../lib/trpc'
+import { api } from '../../lib/api'
 import { useSettingsStore } from '../../store/settings'
 
 export function TopBar() {
-  const { open } = useSettingsStore()
-  const { data: config } = trpc.config.get.useQuery()
-  const setConfigMutation = trpc.config.set.useMutation()
+  const { config, setConfig, open } = useSettingsStore()
 
   const handlePickFolder = async () => {
-    // Electron dialog is not accessible directly from renderer via tRPC here,
-    // but we can use a simple prompt as fallback for now
     const dir = prompt('Enter working directory path:', config?.workingDir ?? '')
     if (dir && config) {
-      await setConfigMutation.mutateAsync({ ...config, workingDir: dir })
+      const updated = { ...config, workingDir: dir }
+      await api.setConfig(updated)
+      setConfig(updated)
     }
   }
+
+  const modelName = config
+    ? config.activeProvider === 'anthropic'
+      ? config.providers.anthropic.model
+      : config.providers['openai-compat'].model
+    : ''
 
   return (
     <div className="flex h-12 items-center justify-between border-b border-white/10 bg-[#111] px-4 flex-shrink-0">
       <button
         onClick={handlePickFolder}
-        className="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-white/5 transition-colors max-w-xs truncate"
+        className="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-white/5 transition-colors max-w-xs"
         title={config?.workingDir ?? 'No folder selected'}
       >
         <FolderIcon />
-        <span className="truncate">{config?.workingDir ?? 'Pick a folder…'}</span>
+        <span className="truncate max-w-[200px]">{config?.workingDir ?? 'Pick a folder…'}</span>
       </button>
 
       <div className="flex items-center gap-2">
-        {config && (
-          <span className="text-xs text-zinc-600">
-            {config.activeProvider === 'anthropic'
-              ? config.providers.anthropic.model
-              : config.providers['openai-compat'].model}
-          </span>
-        )}
+        {modelName && <span className="text-xs text-zinc-600">{modelName}</span>}
         <button
           onClick={open}
           className="rounded-md p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
