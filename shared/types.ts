@@ -80,6 +80,7 @@ export type UIMessageType =
   | 'assistant'
   | 'tool_call'
   | 'tool_result'
+  | 'error'
 
 export interface UIMessage {
   id: string

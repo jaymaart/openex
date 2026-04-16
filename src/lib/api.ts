@@ -5,8 +5,9 @@ interface ElectronAPI {
   setConfig(config: Config): Promise<{ ok: boolean }>
   hasConfig(): Promise<boolean>
   sendMessage(message: string): void
+  onAgentEvent(cb: (event: AgentEvent) => void): void
+  offAgentEvent(): void
   respondToApproval(toolCallId: string, approved: boolean): void
-  onAgentEvent(cb: (event: AgentEvent) => void): () => void
 }
 
 declare global {

@@ -16,7 +16,8 @@ export function MessageInput() {
     setApprovalState,
     addToolResult,
     setStreaming,
-    setPendingApproval
+    setPendingApproval,
+    addErrorMessage
   } = useConversationStore()
 
   const disabled = isStreaming || !!pendingApprovalId
@@ -47,13 +48,19 @@ export function MessageInput() {
     sendMessage(msg)
   }
 
+  const finishStreaming = () => {
+    setStreaming(false)
+    setPendingApproval(null)
+    api.offAgentEvent()
+  }
+
   const sendMessage = (message: string) => {
     addUserMessage(message)
     setStreaming(true)
 
     let currentAssistantId: string | null = null
 
-    const unsub = api.onAgentEvent((event: AgentEvent) => {
+    api.onAgentEvent((event: AgentEvent) => {
       if (event.type === 'text_delta') {
         if (!currentAssistantId) currentAssistantId = startAssistantMessage()
         appendDelta(currentAssistantId, event.delta ?? '')
@@ -66,10 +73,11 @@ export function MessageInput() {
       } else if (event.type === 'tool_result' && event.toolResult) {
         setApprovalState(event.toolResult.toolCallId, 'done')
         addToolResult(event.toolResult)
-      } else if (event.type === 'done' || event.type === 'error') {
-        setStreaming(false)
-        setPendingApproval(null)
-        unsub()
+      } else if (event.type === 'error') {
+        addErrorMessage(event.error ?? 'Unknown error')
+        finishStreaming()
+      } else if (event.type === 'done') {
+        finishStreaming()
       }
     })
 

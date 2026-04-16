@@ -58,6 +58,13 @@ export function MessageThread() {
           // read_file / list_dir — show inline collapsible
           return <ReadResultBlock key={msg.id} output={msg.toolResult.output} toolName={msg.toolResult.toolName} />
         }
+        if (msg.type === 'error') {
+          return (
+            <div key={msg.id} className="rounded-xl border border-red-800/50 bg-red-950/30 px-4 py-2.5 text-sm text-red-400">
+              <span className="font-medium">Error: </span>{msg.content}
+            </div>
+          )
+        }
         return null
       })}
 
